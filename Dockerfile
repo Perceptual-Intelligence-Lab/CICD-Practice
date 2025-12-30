@@ -2,6 +2,8 @@
 FROM python:3.11-slim-bullseye
 
 ARG BUILD_ENV=prod
+ENV BUILD_ENV=${BUILD_ENV}
+
 # Set the working directory to /app
 WORKDIR /app
 

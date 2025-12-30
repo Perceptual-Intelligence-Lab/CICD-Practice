@@ -22,7 +22,7 @@ RUN if [ "$BUILD_ENV" = "develop" ]; then \
     fi
 
 # Copy only the dependency files first to leverage Docker cache
-COPY pyproject.toml poetry.lock README.md ./
+COPY pyproject.toml poetry.lock README.md tox.ini ./
 
 # Install project dependencies
 RUN poetry config virtualenvs.create false && \

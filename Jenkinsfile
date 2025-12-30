@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     environment {
         DOCKERHUB_REPO = 'dn070017/cicd_practice'
         GIT_HASH = "${env.GIT_COMMIT.take(7)}"
@@ -17,7 +21,6 @@ pipeline {
             when {
                 anyOf {
                     changeRequest()
-                    githubPush()
                     triggeredBy 'UserIdCause'
                 }
             }

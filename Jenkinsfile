@@ -17,6 +17,7 @@ pipeline {
             when {
                 anyOf {
                     changeRequest()
+                    githubPush()
                     triggeredBy 'UserIdCause'
                 }
             }

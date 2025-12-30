@@ -8,7 +8,7 @@ ENV BUILD_ENV=${BUILD_ENV}
 WORKDIR /app
 
 # Install poetry via pip (more reliable than external script)
-RUN pip install --no-cache-dir poetry
+RUN pip install --no-cache-dir "poetry>=2.0,<3.0"
 
 # Add Poetry to PATH
 ENV PATH="/root/.local/bin:${PATH}"
@@ -22,7 +22,7 @@ RUN if [ "$BUILD_ENV" = "develop" ]; then \
     fi
 
 # Copy only the dependency files first to leverage Docker cache
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml poetry.lock README.md ./
 
 # Install project dependencies
 RUN poetry config virtualenvs.create false && \

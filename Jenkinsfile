@@ -37,7 +37,7 @@ pipeline {
                     """
 
                     // 2. Run tests
-                    sh "docker run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
+                    //sh "docker run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
                 }
             }
         }

@@ -1,0 +1,14 @@
+[run]
+source = cicd_practice
+branch = True
+omit =
+    */tests/*
+    */__pycache__/*
+    */.tox/*
+    */venv/*
+    */dist/*
+    */build/*
+
+[html]
+directory = reports/coverage
+title = CICD Practice Coverage Report

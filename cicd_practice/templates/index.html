@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latest Clicked Time</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Latest Clicked Time</h1>
+        <div class="controls">
+            <button id="process-btn">Request Timestamp</button>
+            <span class="counter">Request count: <span id="count">1</span></span>
+        </div>
+        
+        <div class="results">
+            <div class="clock-card">
+                <div class="location">UTC</div>
+                <div id="utc" class="digital">00:00:00</div>
+            </div>
+            <div class="clock-card">
+                <div class="location">LONDON</div>
+                <div id="europe" class="digital">00:00:00</div>
+            </div>
+            <div class="clock-card">
+                <div class="location">NEW YORK</div>
+                <div id="us-east" class="digital">00:00:00</div>
+            </div>
+            <div class="clock-card">
+                <div class="location">SAN FRANCISCO</div>
+                <div id="us-west" class="digital">00:00:00</div>
+            </div>
+            <div class="clock-card">
+                <div class="location">TOKYO</div>
+                <div id="japan" class="digital">00:00:00</div>
+            </div>
+            <div class="clock-card">
+                <div class="location">TAIPEI</div>
+                <div id="taipei" class="digital">00:00:00</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

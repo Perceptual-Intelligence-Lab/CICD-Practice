@@ -15,8 +15,10 @@ pipeline {
 
         stage('Build & Test') {
             when {
-                // Ensures this only runs for Pull Requests
-                changeRequest()
+                anyOf {
+                    changeRequest()
+                    triggeredBy 'UserIdCause'
+                }
             }
             steps {
                 script {

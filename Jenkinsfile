@@ -1,121 +1,127 @@
 pipeline {
     agent any
 
+    options {
+        retry(3)
+    }
+
     environment {
         DOCKERHUB_REPO = 'dn070017/cicd_practice'
         GIT_HASH = "${env.GIT_COMMIT?.take(7) ?: 'unknown'}"
+        DOCKER_TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Build & Test') {
-            when {
-                anyOf {
-                    changeRequest()
-                    triggeredBy 'UserIdCause'
+        stage('Continuous Integration') {
+            stages {
+                stage('Checkout') {
+                    steps {
+                        checkout scm
+                    }
                 }
-            }
-            steps {
-                script {
-                    // Get commit hash at the start
-                    def gitHash = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    env.GIT_HASH = gitHash
 
-                    echo "Starting build for PR with Git Hash: ${env.GIT_HASH}"
+                stage('Build') {
+                    steps {
+                        script {
+                            echo "🚀 Building on node: ${env.NODE_NAME}"
+                            echo "📦 Branch: ${env.BRANCH_NAME}, Commit: ${env.GIT_HASH}"
 
-                    // 1. Build the image using the develop environment arg
-                    sh """
-                        docker build --build-arg BUILD_ENV=develop \
-                                     --cache-from ${DOCKERHUB_REPO}:develop \
-                                     -t ${DOCKERHUB_REPO}:${env.GIT_HASH} \
-                                     -t ${DOCKERHUB_REPO}:develop .
-                    """
-
-                    // 2. Run tests
-                    //sh "docker run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
+                            sh """
+                                docker build \
+                                    --build-arg BUILD_ENV=${env.BRANCH_NAME == 'main' ? 'production' : 'develop'} \
+                                    --cache-from ${DOCKERHUB_REPO}:${DOCKER_TAG} \
+                                    -t ${DOCKERHUB_REPO}:${env.GIT_HASH} \
+                                    -t ${DOCKERHUB_REPO}:${DOCKER_TAG} \
+                                    .
+                            """
+                        }
+                    }
                 }
-            }
-        }
 
-        stage('Manual Approval') {
-            when {
-                anyOf {
-                    changeRequest()
-                    triggeredBy 'UserIdCause'
-                }
-            }
-            steps {
-                script {
-                    echo "✅ Tests passed for commit ${env.GIT_HASH}"
-                    echo "Docker image ready: ${DOCKERHUB_REPO}:${env.GIT_HASH}"
-                    echo '⏰ You have 1 hour to approve...'
-
-                    // Manual approval - will pause and wait for user input
-                    timeout(time: 1, unit: 'HOURS') {
-                        input(
-                            message: 'Push image to DockerHub?',
-                            ok: 'Push',
-                            submitter: 'admin,dn070017'
-                        )
+                stage('Test') {
+                    steps {
+                        script {
+                            echo '🧪 Running tests...'
+                            sh "docker run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
+                        }
                     }
                 }
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Continuous Deployment') {
             when {
-                anyOf {
-                    changeRequest()
-                    triggeredBy 'UserIdCause'
+                allOf {
+                    expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+                    anyOf {
+                        branch 'main'
+                        branch 'develop'
+                    }
                 }
             }
-            steps {
-                script {
-                    echo 'Pushing image to DockerHub...'
 
-                    withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-credentials',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
-                        sh """
-                            echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
-                            docker push ${DOCKERHUB_REPO}:${env.GIT_HASH}
-                            docker push ${DOCKERHUB_REPO}:develop
-                            docker logout
-                        """
+            stages {
+                stage('Manual Approval') {
+                    when {
+                        branch 'develop'
+                        branch 'main'
                     }
-                    echo "✅ Successfully pushed ${DOCKERHUB_REPO}:${env.GIT_HASH}"
-                    echo "✅ Successfully pushed ${DOCKERHUB_REPO}:develop"
+                    steps {
+                        script {
+                            timeout(time: 1, unit: 'HOURS') {
+                                input(
+                                    message: "Deploy ${env.GIT_HASH} to DockerHub as 'latest'?",
+                                    ok: 'Deploy'
+                                )
+                            }
+                        }
+                    }
+                }
+
+                stage('Push to DockerHub') {
+                    steps {
+                        script {
+                            echo '🐳 Pushing to DockerHub...'
+                            withCredentials([usernamePassword(
+                                credentialsId: 'dockerhub-credentials',
+                                usernameVariable: 'DOCKER_USER',
+                                passwordVariable: 'DOCKER_PASS'
+                            )]) {
+                                sh """
+                                    echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
+
+                                    # Push commit hash tag
+                                    docker push ${DOCKERHUB_REPO}:${env.GIT_HASH}
+
+                                    # Push branch tag (develop or latest)
+                                    docker push ${DOCKERHUB_REPO}:${DOCKER_TAG}
+
+                                    docker logout
+                                """
+                            }
+                            echo "✅ Successfully pushed ${DOCKERHUB_REPO}:${env.GIT_HASH} and ${DOCKERHUB_REPO}:${DOCKER_TAG}"
+                        }
+                    }
                 }
             }
         }
     }
 
     post {
-        always {
-            script {
-                echo 'Cleaning up local images...'
-                sh """
-                    docker rmi ${DOCKERHUB_REPO}:${env.GIT_HASH} || true
-                    docker rmi ${DOCKERHUB_REPO}:develop || true
-                """
-            }
-        }
         success {
-            echo "✅ Pipeline completed successfully for commit ${env.GIT_HASH}"
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo "❌ Pipeline failed for commit ${env.GIT_HASH}"
-            echo 'Please check the logs above for errors.'
+            echo '❌ Pipeline failed!'
         }
-        aborted {
-            echo '⚠️ Pipeline was aborted (push to DockerHub was cancelled)'
+        always {
+            script {
+                echo '🧹 Cleaning up Docker images...'
+                sh """
+                    docker rmi ${DOCKERHUB_REPO}:${env.GIT_HASH} || true
+                    docker rmi ${DOCKERHUB_REPO}:${DOCKER_TAG} || true
+                """
+            }
         }
     }
 }

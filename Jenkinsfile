@@ -11,6 +11,10 @@ pipeline {
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
     }
 
+    triggers {
+        githubPush()
+    }
+
     stages {
         stage('Continuous Integration') {
             stages {

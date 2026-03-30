@@ -32,7 +32,7 @@ pipeline {
                             echo "🚀 Building on node: ${env.NODE_NAME}"
                             echo "📦 Branch: ${env.BRANCH_NAME}, Commit: ${env.GIT_HASH}"
                             sh """
-                                podman build \
+                                docker build \
                                     --build-arg BUILD_ENV=${env.BRANCH_NAME?.startsWith('PR-') ? 'develop' : (env.BRANCH_NAME == 'main' ? 'production' : 'develop')} \
                                     --cache-from ${DOCKERHUB_REPO}:${DOCKER_TAG} \
                                     -t ${DOCKERHUB_REPO}:${env.GIT_HASH} \
@@ -46,7 +46,7 @@ pipeline {
                     steps {
                         script {
                             echo '🧪 Running tests...'
-                            sh "podman run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
+                            sh "docker run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
                         }
                     }
                 }
@@ -85,9 +85,9 @@ pipeline {
                                 passwordVariable: 'DOCKER_PASS'
                             )]) {
                                 sh """
-                                    echo "\$DOCKER_PASS" | podman login -u "\$DOCKER_USER" --password-stdin
-                                    podman push ${DOCKERHUB_REPO}:${env.GIT_HASH}
-                                    podman push ${DOCKERHUB_REPO}:${DOCKER_TAG}
+                                    echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
+                                    docker push ${DOCKERHUB_REPO}:${env.GIT_HASH}
+                                    docker push ${DOCKERHUB_REPO}:${DOCKER_TAG}
                                 """
                             }
                         }
@@ -122,7 +122,7 @@ pipeline {
             }
         }
         always {
-            sh 'podman logout || true'
+            sh 'docker logout || true'
         }
     }
 }

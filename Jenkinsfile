@@ -1,7 +1,7 @@
 pipeline {
     agent {
         dockerContainer {
-            image 'jenkins/agent:latest-alpine-jdk21'
+            image 'zooey0402:jenkins-agent:latest'
         }
     }
     options {

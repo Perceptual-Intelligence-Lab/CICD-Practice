@@ -1,20 +1,18 @@
 pipeline {
-    agent any
-
+    agent {
+        docker {
+            image 'docker:27-cli'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
     options {
         retry(3)
     }
-
     environment {
         DOCKERHUB_REPO = 'dn070017/cicd_practice'
         GIT_HASH = "${env.GIT_COMMIT?.take(7) ?: 'unknown'}"
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
     }
-
-    triggers {
-        githubPush()
-    }
-
     stages {
         stage('Continuous Integration') {
             stages {
@@ -23,16 +21,14 @@ pipeline {
                         checkout scm
                     }
                 }
-
                 stage('Build') {
                     steps {
                         script {
                             echo "🚀 Building on node: ${env.NODE_NAME}"
                             echo "📦 Branch: ${env.BRANCH_NAME}, Commit: ${env.GIT_HASH}"
-
                             sh """
                                 docker build \
-                                    --build-arg BUILD_ENV=${env.BRANCH_NAME == 'main' ? 'production' : 'develop'} \
+                                    --build-arg BUILD_ENV=${env.BRANCH_NAME?.startsWith('PR-') ? 'develop' : (env.BRANCH_NAME == 'main' ? 'production' : 'develop')} \
                                     --cache-from ${DOCKERHUB_REPO}:${DOCKER_TAG} \
                                     -t ${DOCKERHUB_REPO}:${env.GIT_HASH} \
                                     -t ${DOCKERHUB_REPO}:${DOCKER_TAG} \
@@ -41,7 +37,6 @@ pipeline {
                         }
                     }
                 }
-
                 stage('Test') {
                     steps {
                         script {
@@ -52,7 +47,6 @@ pipeline {
                 }
             }
         }
-
         stage('Continuous Deployment') {
             when {
                 allOf {
@@ -63,25 +57,19 @@ pipeline {
                     }
                 }
             }
-
             stages {
                 stage('Manual Approval') {
-                    when {
-                        branch 'develop'
-                        branch 'main'
-                    }
                     steps {
                         script {
                             timeout(time: 1, unit: 'HOURS') {
                                 input(
-                                    message: "Deploy ${env.GIT_HASH} to DockerHub as 'latest'?",
+                                    message: "✅ CI passed for ${env.GIT_HASH} on '${env.BRANCH_NAME}'. Deploy to DockerHub as '${DOCKER_TAG}'?",
                                     ok: 'Deploy'
                                 )
                             }
                         }
                     }
                 }
-
                 stage('Push to DockerHub') {
                     steps {
                         script {
@@ -93,39 +81,33 @@ pipeline {
                             )]) {
                                 sh """
                                     echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
-
-                                    # Push commit hash tag
                                     docker push ${DOCKERHUB_REPO}:${env.GIT_HASH}
-
-                                    # Push branch tag (develop or latest)
                                     docker push ${DOCKERHUB_REPO}:${DOCKER_TAG}
-
-                                    docker logout
                                 """
                             }
-                            echo "✅ Successfully pushed ${DOCKERHUB_REPO}:${env.GIT_HASH} and ${DOCKERHUB_REPO}:${DOCKER_TAG}"
                         }
                     }
                 }
             }
         }
     }
-
     post {
         success {
-            echo '✅ Pipeline completed successfully!'
+            script {
+                if (env.BRANCH_NAME?.startsWith('PR-')) {
+                    echo "✅ CI passed for PR ${env.BRANCH_NAME} — ready for review and merge."
+                }
+            }
         }
         failure {
-            echo '❌ Pipeline failed!'
+            script {
+                if (env.BRANCH_NAME?.startsWith('PR-')) {
+                    echo "❌ CI failed for PR ${env.BRANCH_NAME} — merge blocked."
+                }
+            }
         }
         always {
-            script {
-                echo '🧹 Cleaning up Docker images...'
-                sh """
-                    docker rmi ${DOCKERHUB_REPO}:${env.GIT_HASH} || true
-                    docker rmi ${DOCKERHUB_REPO}:${DOCKER_TAG} || true
-                """
-            }
+            sh 'docker logout || true'
         }
     }
 }

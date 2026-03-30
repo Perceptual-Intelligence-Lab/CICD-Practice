@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        docker {
+        dockerContainer {
             image 'docker:27-cli'
             args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
@@ -15,6 +15,7 @@ pipeline {
     }
     stages {
         stage('Continuous Integration') {
+            failFast true 
             stages {
                 stage('Checkout') {
                     steps {
@@ -50,7 +51,7 @@ pipeline {
         stage('Continuous Deployment') {
             when {
                 allOf {
-                    expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+                    expression { currentBuild.currentResult == 'SUCCESS' }
                     anyOf {
                         branch 'main'
                         branch 'develop'

@@ -1,7 +1,7 @@
 pipeline {
     agent {
         dockerContainer {
-            image 'docker:27-cli'
+            image 'jenkins/agent:latest-alpine-jdk21'
         }
     }
     options {

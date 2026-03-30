@@ -24,6 +24,11 @@ pipeline {
                 stage('Build') {
                     steps {
                         script {
+                            githubNotify(
+                                status: 'PENDING',
+                                context: 'ci/jenkins',
+                                description: 'CI is running...'
+                            )
                             echo "🚀 Building on node: ${env.NODE_NAME}"
                             echo "📦 Branch: ${env.BRANCH_NAME}, Commit: ${env.GIT_HASH}"
                             sh """
@@ -41,8 +46,7 @@ pipeline {
                     steps {
                         script {
                             echo '🧪 Running tests...'
-                            sh "podman
- run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
+                            sh "podman run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
                         }
                     }
                 }
@@ -95,6 +99,11 @@ pipeline {
     post {
         success {
             script {
+                githubNotify(
+                    status: 'SUCCESS',
+                    context: 'ci/jenkins',
+                    description: '✅ CI passed'
+                )
                 if (env.BRANCH_NAME?.startsWith('PR-')) {
                     echo "✅ CI passed for PR ${env.BRANCH_NAME} — ready for review and merge."
                 }
@@ -102,6 +111,11 @@ pipeline {
         }
         failure {
             script {
+                githubNotify(
+                    status: 'FAILURE',
+                    context: 'ci/jenkins',
+                    description: '❌ CI failed'
+                )
                 if (env.BRANCH_NAME?.startsWith('PR-')) {
                     echo "❌ CI failed for PR ${env.BRANCH_NAME} — merge blocked."
                 }

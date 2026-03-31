@@ -1,9 +1,7 @@
 pipeline {
     agent {
-        docker {
+        dockerContainer {
             image 'zooey0402/jenkins-agent:latest'
-            // This is the critical fix for Podman socket access
-            args '-v /run/podman/podman.sock:/var/run/docker.sock -e DOCKER_HOST=unix:///var/run/docker.sock'
         }
     }
     options {

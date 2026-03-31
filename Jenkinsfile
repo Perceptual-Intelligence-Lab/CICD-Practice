@@ -36,6 +36,7 @@ pipeline {
                                     --cache-from ${DOCKERHUB_REPO}:${DOCKER_TAG} \
                                     -t ${DOCKERHUB_REPO}:${GIT_HASH} \
                                     -t ${DOCKERHUB_REPO}:${DOCKER_TAG} \
+                                    --load \
                                     .
                             """
                         }

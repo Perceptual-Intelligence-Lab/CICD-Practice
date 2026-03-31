@@ -2,6 +2,7 @@ pipeline {
     agent {
         dockerContainer {
             image 'zooey0402/jenkins-agent:latest'
+            args '-v /run/podman/podman.sock:/var/run/docker.sock -e DOCKER_HOST=unix:///var/run/docker.sock'
         }
     }
     options {

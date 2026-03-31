@@ -1,0 +1,6 @@
+FROM jenkins/inbound-agent
+USER root
+RUN apk add --no-cache docker-cli
+# Tell docker CLI to use podman socket by default
+ENV DOCKER_HOST=unix:///var/run/podman.sock
+USER jenkins

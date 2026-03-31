@@ -1,8 +1,6 @@
 pipeline {
     agent {
-        docker {
-            image 'zooey0402/jenkins-agent:latest'
-        }
+      label 'jenkins-agent'
     }
     options {
         retry(3)

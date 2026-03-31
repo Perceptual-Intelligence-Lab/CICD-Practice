@@ -1,6 +1,18 @@
 FROM jenkins/inbound-agent
 USER root
-RUN apk add --no-cache docker-cli
-# Tell docker CLI to use podman socket by default
-ENV DOCKER_HOST=unix:///var/run/podman.sock
+
+RUN apt-get update && apt-get install -y \
+  ca-certificates \
+  curl \
+  gnupg \
+  && install -m 0755 -d /etc/apt/keyrings \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+  && echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list \
+  && apt-get update \
+  && apt-get install -y docker-ce-cli \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV DOCKER_HOST=unix:///run/podman/podman.sock
 USER jenkins

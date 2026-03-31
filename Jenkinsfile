@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        dockerContainer {
+        docker {
             image 'zooey0402/jenkins-agent:latest'
         }
     }

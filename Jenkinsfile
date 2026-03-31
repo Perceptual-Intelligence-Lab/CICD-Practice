@@ -1,7 +1,8 @@
 pipeline {
     agent {
-        dockerContainer {
+        docker {
             image 'zooey0402/jenkins-agent:latest'
+            // This is the critical fix for Podman socket access
             args '-v /run/podman/podman.sock:/var/run/docker.sock -e DOCKER_HOST=unix:///var/run/docker.sock'
         }
     }
@@ -10,7 +11,8 @@ pipeline {
     }
     environment {
         DOCKERHUB_REPO = 'dn070017/cicd_practice'
-        GIT_HASH = "${env.GIT_COMMIT?.take(7) ?: 'unknown'}"
+        // Using a more robust way to get the short hash
+        GIT_HASH = "${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'}"
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME}"
     }
     stages {
@@ -31,12 +33,12 @@ pipeline {
                                 description: 'CI is running...'
                             )
                             echo "🚀 Building on node: ${env.NODE_NAME}"
-                            echo "📦 Branch: ${env.BRANCH_NAME}, Commit: ${env.GIT_HASH}"
+                            echo "📦 Branch: ${env.BRANCH_NAME}, Commit: ${GIT_HASH}"
                             sh """
                                 docker build \
                                     --build-arg BUILD_ENV=${env.BRANCH_NAME?.startsWith('PR-') ? 'develop' : (env.BRANCH_NAME == 'main' ? 'production' : 'develop')} \
                                     --cache-from ${DOCKERHUB_REPO}:${DOCKER_TAG} \
-                                    -t ${DOCKERHUB_REPO}:${env.GIT_HASH} \
+                                    -t ${DOCKERHUB_REPO}:${GIT_HASH} \
                                     -t ${DOCKERHUB_REPO}:${DOCKER_TAG} \
                                     .
                             """
@@ -47,7 +49,7 @@ pipeline {
                     steps {
                         script {
                             echo '🧪 Running tests...'
-                            sh "docker run --rm ${DOCKERHUB_REPO}:${env.GIT_HASH} poetry run tox"
+                            sh "docker run --rm ${DOCKERHUB_REPO}:${GIT_HASH} poetry run tox"
                         }
                     }
                 }
@@ -69,7 +71,7 @@ pipeline {
                         script {
                             timeout(time: 1, unit: 'HOURS') {
                                 input(
-                                    message: "✅ CI passed for ${env.GIT_HASH} on '${env.BRANCH_NAME}'. Deploy to DockerHub as '${DOCKER_TAG}'?",
+                                    message: "✅ CI passed for ${GIT_HASH} on '${env.BRANCH_NAME}'. Deploy to DockerHub as '${DOCKER_TAG}'?",
                                     ok: 'Deploy'
                                 )
                             }
@@ -87,8 +89,9 @@ pipeline {
                             )]) {
                                 sh """
                                     echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
-                                    docker push ${DOCKERHUB_REPO}:${env.GIT_HASH}
+                                    docker push ${DOCKERHUB_REPO}:${GIT_HASH}
                                     docker push ${DOCKERHUB_REPO}:${DOCKER_TAG}
+                                    docker logout
                                 """
                             }
                         }
@@ -105,9 +108,6 @@ pipeline {
                     context: 'ci/jenkins',
                     description: '✅ CI passed'
                 )
-                if (env.BRANCH_NAME?.startsWith('PR-')) {
-                    echo "✅ CI passed for PR ${env.BRANCH_NAME} — ready for review and merge."
-                }
             }
         }
         failure {
@@ -117,13 +117,7 @@ pipeline {
                     context: 'ci/jenkins',
                     description: '❌ CI failed'
                 )
-                if (env.BRANCH_NAME?.startsWith('PR-')) {
-                    echo "❌ CI failed for PR ${env.BRANCH_NAME} — merge blocked."
-                }
             }
-        }
-        always {
-            sh 'docker logout || true'
         }
     }
 }
